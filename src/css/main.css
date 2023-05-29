@@ -1,0 +1,82 @@
+@font-face {
+    font-family: "HeadUpDaisy";
+    src: url("../fonts/HeadUpDaisy.ttf") format("truetype");
+}
+
+body {
+    font-family: "HeadUpDaisy";
+    background-color: #171717;
+    color: #ffffff;
+    margin: 1%;
+    padding: 1%;
+}
+
+code {
+    font-family: "HeadUpDaisy";
+    background-color: #111111;
+    color: #a0a0a0;
+    padding: 0.5%;
+    font-size: 12px;
+}
+
+table {
+    margin-left: 50px;
+    margin-top: 20px;
+}
+
+.panel {
+    background-color: #292929;
+    padding: 1px;
+}
+
+.panel h1 {
+    font-size: 24px;
+    font-weight: bold;
+    padding-left: 10px;
+}
+
+.body-info {
+    font-size: 20px;
+    margin-left: 50px;
+}
+
+.square {
+    width: auto;
+    height: 35px;
+    background-color: #292929;
+    border: 1px solid #ffffff;
+    text-align: center;
+    line-height: 35px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: HeadUpDaisy;
+    font-size: 20px;
+    padding-right: 30px;
+    padding-left: 30px;
+}
+
+.button {
+    font-family: "HeadUpDaisy";
+    background-color: #292929;
+    border: none;
+    color: white;
+    padding: 16px 16px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+}
+
+.footer {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+}
+
+::selection {
+    background-color: #121212;
+    color: #7a7a7a;
+}
