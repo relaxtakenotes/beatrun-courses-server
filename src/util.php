@@ -9,7 +9,7 @@ $admins_dir = "data/_admins.json";
 $webhook_url = ""; // discord webhook logging url
 
 $ratelimit_period = 5;
-$ip_list_refresh = 21600; // how fast can a person change their ip on their account. this is 6 hours
+$ip_list_refresh = 10800; // how fast can a person change their ip on their account. this is 3 hours
 
 $authkey = "";
 $map = "";
@@ -138,20 +138,98 @@ function account_owns_gmod($userid) {
     return false;
 }
 
-function lock_account($id) {
+function get_userid_from_authkey($authkey) {
+    global $authkeys_dir;
+    $key_array = json_decode(file_get_contents($authkeys_dir), true);
+
+    if (count($key_array) <= 0) { return ""; }
+
+    if (!isset($key_array[$authkey])) { return ""; }
+
+    return $key_array[$authkey];
+}
+
+function get_authkey_from_userid($userid) {
+    global $authkeys_dir;
+
+    $key_array = json_decode(file_get_contents($authkeys_dir), true);
+    foreach ($key_array as $authkey => $authsteamid) {
+        if ($authsteamid === $userid) {
+            return $authkey;
+        }
+    }
+
+    return "";
+}
+
+function get_relevant_info($id) {
+    $_steamid = "";
+    $_authkey = "";
+    $type = "";
+
+    if (preg_match('/[^\/][0-9]{8,}/', $id)) {
+        $type = "steamid";
+    } else {
+        $type = "authkey";
+    }
+
+    if ($type == "steamid") {
+        $_steamid = $id;
+        $_authkey = get_authkey_from_userid($_steamid);
+    }
+
+    if ($type == "authkey") {
+        $_steamid = get_userid_from_authkey($id);
+        $_authkey = $id;        
+    }
+
+    return [$_steamid, $_authkey];
+}
+
+function _lock_account($id) {
     global $lock_dir;
     $locks = json_decode(file_get_contents($lock_dir), true);
     $locks[$id] = true;
-    file_put_contents($lock_dir, json_encode($locks, JSON_PRETTY_PRINT));
-    return "Locked.";
+    file_put_contents($lock_dir, json_encode($locks, JSON_PRETTY_PRINT));    
 }
 
-function unlock_account($id) {
+function lock_account($id) {
+    [$_steamid, $_authkey] = get_relevant_info($id);
+
+    _lock_account($_steamid);
+    _lock_account($_authkey);
+
+    return "Locked: $_steamid, $_authkey";
+}
+
+function _unlock_account($id) {
     global $lock_dir;
     $locks = json_decode(file_get_contents($lock_dir), true);
     unset($locks[$id]);
     file_put_contents($lock_dir, json_encode($locks, JSON_PRETTY_PRINT));
-    return "Unlocked.";
+}
+
+function unlock_account($id) {
+    [$_steamid, $_authkey] = get_relevant_info($id);
+
+    _unlock_account($_steamid);
+    _unlock_account($_authkey);
+
+    return "Unlocked. $_steamid, $_authkey";
+}
+
+function is_locked($id) {
+    global $lock_dir;
+
+    [$_steamid, $_authkey] = get_relevant_info($id);
+
+    $locks = json_decode(file_get_contents($lock_dir), true);
+
+    if (isset($locks[$_authkey]) || isset($locks[$_steamid])) {
+        return true; 
+    }
+
+    return false;
 }
 
 function gen_key($userid) {
@@ -202,40 +280,10 @@ function rm_course($map, $code) {
     }
 }
 
-function get_userid_from_authkey($authkey) {
-    global $authkeys_dir;
-    $key_array = json_decode(file_get_contents($authkeys_dir), true);
-
-    if (count($key_array) <= 0) { return ""; }
-
-    if (!isset($key_array[$authkey])) { return ""; }
-
-    return $key_array[$authkey];
-}
-
-function get_authkey_from_userid($userid) {
-    global $authkeys_dir;
-
-    $key_array = json_decode(file_get_contents($authkeys_dir), true);
-    foreach ($key_array as $authkey => $authsteamid) {
-        if ($authsteamid === $userid) {
-            return $authkey;
-        }
-    }
-
-    return "";
-}
-
 function is_multiaccount($userid) {
-    global $account_record_dir, $ip_list_refresh, $ip, $lock_dir, $authkeys_dir;
+    global $account_record_dir, $ip_list_refresh, $ip, $authkeys_dir;
 
-    $locks = json_decode(file_get_contents($lock_dir), true);
-    $authkey = get_authkey_from_userid($userid);
-
-    if (isset($locks[$ip]) || isset($locks[$authkey]) || isset($locks[$userid])) {
-        lock_account($ip);
-        return true; 
-    }
+    if (is_locked($userid)) { return true; }
 
     $record = json_decode(file_get_contents($account_record_dir), true);
 
@@ -244,8 +292,9 @@ function is_multiaccount($userid) {
     if (!isset($record[$userid]["ips"])) { $record[$userid]["ips"] = []; }
     if (!isset($record[$userid]["lastchanged"])) { $record[$userid]["lastchanged"] = 0; }
 
-    if ($record[$userid]["lastchanged"] < $ip_list_refresh) {
+    if (time() - $record[$userid]["lastchanged"] > $ip_list_refresh) {
         $record[$userid]["ips"] = [];
+        $record[$userid]["lastchanged"] = time();
     }
 
     if (!isset($record[$userid]["ips"][$ip])) {
@@ -255,10 +304,6 @@ function is_multiaccount($userid) {
 
     if (count($record[$userid]["ips"]) > 2) {
         lock_account($userid);
-        foreach ($record[$userid]["ips"] as $aip => $booolll) {
-            lock_account($aip);
-        }
-        lock_account($authkey);
         return true;
     }
 
@@ -285,13 +330,10 @@ function _log_webhook($text) {
 }
 
 function _log_browser($content) {
-    global $log_dir, $authkey, $map, $ip;
+    global $log_dir, $ip;
 
-    $text = date("D M j G:i:s T Y");
-    $text .= " - ";
-    $text .= $content;
-    $text .= " (";
-    $text .= "IP: ".$ip.")\n";
+    $date = date("D M j G:i:s T Y");
+    $text = "$date - $content (IP: $ip)";
 
     _log_webhook($text);
     file_put_contents($log_dir, $text, FILE_APPEND);
@@ -300,14 +342,9 @@ function _log_browser($content) {
 function _log($content) {
     global $log_dir, $authkey, $map, $ip;
 
-    $text = date("D M j G:i:s T Y");
-    $text .= " - ";
-    $text .= $content;
-    $text .= " (";
-    $text .= "Authkey: ".$authkey.", ";
-    $text .= "Map: ".$map.", ";
-    $text .= "IP: ".$ip.", ";
-    $text .= "UserID: ".get_userid_from_authkey($authkey).")\n";
+    $date = date("D M j G:i:s T Y");
+    $steamid = get_userid_from_authkey($authkey);
+    $text = "$date - $content (Authkey: $authkey, Map: $map, IP: $ip, SteamID: $steamid)";
     
     _log_webhook($text);
     file_put_contents($log_dir, $text, FILE_APPEND);
@@ -323,13 +360,9 @@ function _error($reason) {
 function register_steam_account($userid, $timecreated) {
     global $authkeys_dir;
 
-    $ragh = "(";
-    $ragh .= "UserID: ".$userid.", ";
-    $ragh .= "timecreated: ".$timecreated.")";
+    $ragh = "(SteamID: $userid, TimeCreated: $timecreated)";
 
-    if (time() - $timecreated < 7890000) { _log_browser("util.php - Too young of an account ".$ragh); return "Account too young. Needs to be at least 3 months old."; }
-    if (!account_owns_gmod($userid)) { _log_browser("util.php - GMOD not found ".$ragh); return "Account doesn't have Garry's mod. Make sure your game details are public if you think this is wrong."; }
-    if (is_multiaccount($userid)) { _log_browser("util.php - Got owned for sharing his account... ".$ragh); return "Your account is locked. Contact site administration."; }
+    if (is_multiaccount($userid)) { _log_browser("util.php - Account locked. ".$ragh); return "Your account is locked. Contact site administration."; }
 
     $keys = json_decode(file_get_contents($authkeys_dir), true);
     foreach ($keys as $akey => $value) {
@@ -342,6 +375,9 @@ function register_steam_account($userid, $timecreated) {
             return $akey;
         }
     }
+
+    if (time() - $timecreated < 7890000) { _log_browser("util.php - Too young of an account ".$ragh); return "Account too young. Needs to be at least 3 months old."; }
+    if (!account_owns_gmod($userid)) { _log_browser("util.php - GMOD not found ".$ragh); return "Account doesn't have Garry's mod. Make sure your game details are public if you think this is wrong."; }
 
     $key = generateRandomString(32);
     while (isset($keys[$key])) {
