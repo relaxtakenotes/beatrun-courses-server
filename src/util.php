@@ -357,6 +357,23 @@ function _error($reason) {
     exit;
 }
 
+function get_records() {
+    global $account_record_dir;
+    $record = json_decode(file_get_contents($account_record_dir), true);
+
+    $output = "";
+
+    foreach ($record as $steamid => $data) {
+        $ips = [];
+        foreach ($data["ips"] as $ip => $boolleaaann) { array_push($ips, $ip); }
+        $s_ips = implode(', ', $ips);
+        $lastchanged = $data["lastchanged"];
+        $output .= "$steamid - IP's: $s_ips; LastChanged: $lastchanged\n";
+    }
+
+    return $output;
+}
+
 function register_steam_account($userid, $timecreated) {
     global $authkeys_dir;
 
