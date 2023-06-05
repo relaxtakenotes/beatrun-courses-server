@@ -66,6 +66,10 @@ if (array_key_exists('_bcs_records', $_POST)) {
     $response = str_replace("\n", "<br>", get_records()); 
 }
 
+if (array_key_exists('_bcs_bans', $_POST)) {
+    $response = str_replace("\n", "<br>", file_get_contents($lock_dir));
+}
+
 if (array_key_exists('_bcs_rm_course', $_POST)) {
 	if (strlen($_POST["_bcs_rm_course_map"]) <= 0 || strlen($_POST["_bcs_rm_course_code"]) <= 0) { 
 		$response = "No input."; 
@@ -112,6 +116,7 @@ if (array_key_exists('_bcs_rm_course', $_POST)) {
 					<br><br>
 					<input type="submit" name="_bcs_logs" class="button" value="Show logs"/>
 					<input type="submit" name="_bcs_records" class="button" value="Show records"/>
+					<input type="submit" name="_bcs_bans" class="button" value="Show locks"/>
 				</form>
 				<br>
 				Server response:<br><br>
