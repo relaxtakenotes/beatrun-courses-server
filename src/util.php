@@ -336,7 +336,7 @@ function _log_browser($content) {
     $text = "$date - $content (IP: $ip)";
 
     _log_webhook($text);
-    file_put_contents($log_dir, $text + "\n", FILE_APPEND);
+    file_put_contents($log_dir, $text."\n", FILE_APPEND);
 }
 
 function _log($content) {
@@ -347,7 +347,7 @@ function _log($content) {
     $text = "$date - $content (Authkey: $authkey, Map: $map, IP: $ip, SteamID: $steamid)";
     
     _log_webhook($text);
-    file_put_contents($log_dir, $text + "\n", FILE_APPEND);
+    file_put_contents($log_dir, $text."\n", FILE_APPEND);
 }
 
 function _error($reason) {
